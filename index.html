@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Escáner de Código de Barras con Cámara</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.10/minified/html5-qrcode.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #reader { width: 100%; max-width: 400px; margin-bottom: 10px; }
+    #listado { max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+    button, input { padding: 10px; margin: 5px 5px 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>Escáner de Código de Barras (Solo cámara)</h1>
+  <div id="reader"></div>
+  <p>Total escaneados: <span id="contador">0</span> / 1000</p>
+  <button onclick="reiniciar()">Reiniciar Contador</button>
+  <input id="busqueda" type="text" placeholder="Buscar código..." oninput="buscarCodigo()" />
+  <div id="listado"></div>
+
+  <!-- Sonidos -->
+  <audio id="beep" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" preload="auto"></audio>
+  <audio id="alerta" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" preload="auto"></audio>
+
+<script>
+  const listado = document.getElementById('listado');
+  const contador = document.getElementById('contador');
+  const beep = document.getElementById('beep');
+  const alerta = document.getElementById('alerta');
+  let codigos = [];
+
+  function agregarCodigo(valor) {
+    if (!valor || codigos.length >= 1000) return;
+    if (codigos.some(c => c.codigo === valor)) return; // evitar duplicados
+    const timestamp = new Date().toLocaleString();
+    codigos.push({ codigo: valor, fecha: timestamp });
+    contador.textContent = codigos.length;
+    beep.play();
+    actualizarListado();
+
+    if (codigos.length % 50 === 0) {
+      alerta.play();
+      alert(`¡Has escaneado ${codigos.length} códigos!`);
+    }
+  }
+
+  function actualizarListado(filtro = '') {
+    listado.innerHTML = '';
+    const filtrados = codigos.filter(c => c.codigo.includes(filtro));
+    filtrados.forEach(codigoObj => {
+      const div = document.createElement('div');
+      div.textContent = `${codigoObj.codigo} - ${codigoObj.fecha}`;
+      listado.appendChild(div);
+    });
+  }
+
+  function buscarCodigo() {
+    const filtro = document.getElementById('busqueda').value.trim();
+    actualizarListado(filtro);
+  }
+
+  function reiniciar() {
+    if (confirm('¿Seguro que quieres reiniciar todos los códigos?')) {
+      codigos = [];
+      contador.textContent = '0';
+      actualizarListado();
+    }
+  }
+
+  function iniciarCamara() {
+    const html5QrcodeScanner = new Html5Qrcode("reader");
+
+    html5QrcodeScanner.start(
+      { facingMode: "environment" },
+      {
+        fps: 10,
+        qrbox: { width: 300, height: 150 },
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        },
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF
+        ]
+      },
+      (decodedText, decodedResult) => {
+        agregarCodigo(decodedText);
+      },
+      errorMessage => {
+        // Errores leves, ignorar
+      }
+    ).catch(err => {
+      alert("No se pudo acceder a la cámara: " + err);
+      console.error(err);
+    });
+  }
+
+  window.onload = iniciarCamara;
+</script>
+</body>
+</html>
